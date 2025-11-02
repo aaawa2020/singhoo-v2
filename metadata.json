@@ -1,0 +1,5 @@
+{
+  "name": "Singhoo Studio Visual Novel Illustrator",
+  "description": "An AI-powered tool for Singhoo Studio to generate and edit visual novel illustrations. Features include text-to-image generation, image editing via prompts, and a 'Thinking Mode' for complex scene descriptions.",
+  "requestFramePermissions": []
+}
