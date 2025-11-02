@@ -1,7 +1,6 @@
-
 import { GoogleGenAI, Modality } from "@google/genai";
 import { MODEL_IMAGEN, MODEL_FLASH_IMAGE, MODEL_PRO_THINKING } from '../constants';
-import { AspectRatio } from '../types';
+import { AspectRatio, ImageModel, ImageSize } from '../types';
 
 const getAIClient = () => {
     if (!process.env.API_KEY) {
@@ -10,22 +9,50 @@ const getAIClient = () => {
     return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
-export const generateImage = async (prompt: string, aspectRatio: AspectRatio): Promise<string> => {
+export const generateImage = async (prompt: string, aspectRatio: AspectRatio, model: ImageModel, imageSize: ImageSize): Promise<string> => {
     const ai = getAIClient();
-    const response = await ai.models.generateImages({
-        model: MODEL_IMAGEN,
-        prompt: prompt,
-        config: {
-            numberOfImages: 1,
-            outputMimeType: 'image/png',
-            aspectRatio: aspectRatio,
-        },
-    });
 
-    if (response.generatedImages && response.generatedImages.length > 0) {
-        const base64ImageBytes = response.generatedImages[0].image.imageBytes;
-        return `data:image/png;base64,${base64ImageBytes}`;
+    if (model === MODEL_IMAGEN) {
+        const response = await ai.models.generateImages({
+            model: MODEL_IMAGEN,
+            prompt: prompt,
+            config: {
+                numberOfImages: 1,
+                outputMimeType: 'image/png',
+                aspectRatio: aspectRatio,
+                imageSize: imageSize,
+            },
+        });
+
+        if (response.generatedImages && response.generatedImages.length > 0) {
+            const base64ImageBytes = response.generatedImages[0].image.imageBytes;
+            return `data:image/png;base64,${base64ImageBytes}`;
+        }
+    } else if (model === MODEL_FLASH_IMAGE) {
+        const response = await ai.models.generateContent({
+            model: MODEL_FLASH_IMAGE,
+            contents: {
+                parts: [{ text: prompt }],
+            },
+            config: {
+                responseModalities: [Modality.IMAGE],
+                imageConfig: {
+                    aspectRatio: aspectRatio,
+                },
+            },
+        });
+
+        const candidate = response.candidates?.[0];
+        if (candidate?.content?.parts) {
+            for (const part of candidate.content.parts) {
+                if (part.inlineData) {
+                    const base64ImageBytes: string = part.inlineData.data;
+                    return `data:image/png;base64,${base64ImageBytes}`;
+                }
+            }
+        }
     }
+    
     throw new Error("Image generation failed or returned no images.");
 };
 

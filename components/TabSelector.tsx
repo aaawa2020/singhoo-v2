@@ -19,7 +19,7 @@ const TabButton: React.FC<{
       className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
         isActive
           ? 'bg-indigo-600 text-white shadow-md'
-          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+          : 'bg-gray-700/50 text-gray-300 hover:bg-gray-700'
       }`}
     >
       {icon}
@@ -54,7 +54,7 @@ const TabSelector: React.FC<TabSelectorProps> = ({ currentMode, onModeChange }) 
   ];
 
   return (
-    <div className="flex p-1 space-x-2 bg-gray-900 rounded-xl max-w-md mx-auto">
+    <div className="flex p-1 space-x-2 bg-gray-900/60 rounded-xl">
       {tabs.map(tab => (
         <TabButton
           key={tab.mode}

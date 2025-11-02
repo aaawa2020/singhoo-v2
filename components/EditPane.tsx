@@ -1,11 +1,15 @@
-
 import React, { useState, useCallback, useRef } from 'react';
 import { editImage } from '../services/geminiService';
 import { convertFileToBase64 } from '../utils/fileUtils';
 import ResultDisplay from './common/ResultDisplay';
 import Button from './common/Button';
+import { EditHistoryItem } from '../types';
 
-const EditPane: React.FC = () => {
+interface EditPaneProps {
+  addHistoryItem: (item: Omit<EditHistoryItem, 'id' | 'timestamp'>) => void;
+}
+
+const EditPane: React.FC<EditPaneProps> = ({ addHistoryItem }) => {
   const [prompt, setPrompt] = useState<string>('');
   const [originalImageFile, setOriginalImageFile] = useState<File | null>(null);
   const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
@@ -46,13 +50,23 @@ const EditPane: React.FC = () => {
       const base64Image = await convertFileToBase64(originalImageFile);
       const imageUrl = await editImage(prompt, base64Image, originalImageFile.type);
       setEditedImageUrl(imageUrl);
+
+      if (originalImageUrl) {
+        addHistoryItem({
+          type: 'edit',
+          prompt,
+          imageUrl,
+          originalImageUrl,
+        });
+      }
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred.');
       console.error(err);
     } finally {
       setIsLoading(false);
     }
-  }, [prompt, originalImageFile]);
+  }, [prompt, originalImageFile, originalImageUrl, addHistoryItem]);
   
   const triggerFileSelect = () => fileInputRef.current?.click();
 

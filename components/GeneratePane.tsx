@@ -1,17 +1,41 @@
-
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { generateImage } from '../services/geminiService';
-import { AspectRatio } from '../types';
-import { ASPECT_RATIOS } from '../constants';
+import { AspectRatio, ImageModel, ImageSize, GenerateHistoryItem, HistoryItem } from '../types';
+import { ASPECT_RATIOS, IMAGE_MODELS, IMAGE_SIZES } from '../constants';
 import ResultDisplay from './common/ResultDisplay';
 import Button from './common/Button';
 
-const GeneratePane: React.FC = () => {
+interface GeneratePaneProps {
+  addHistoryItem: (item: Omit<GenerateHistoryItem, 'id' | 'timestamp'>) => void;
+  reusedSettings: HistoryItem | null;
+  onSettingsReused: () => void;
+}
+
+
+const GeneratePane: React.FC<GeneratePaneProps> = ({ addHistoryItem, reusedSettings, onSettingsReused }) => {
   const [prompt, setPrompt] = useState<string>('');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
+  const [model, setModel] = useState<ImageModel>(IMAGE_MODELS[0].id);
+  const [imageSize, setImageSize] = useState<ImageSize>('1K');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+
+  const selectedModelInfo = IMAGE_MODELS.find(m => m.id === model);
+
+  useEffect(() => {
+    if (reusedSettings && reusedSettings.type === 'generate') {
+      setPrompt(reusedSettings.prompt);
+      setGeneratedImage(reusedSettings.imageUrl);
+      if (reusedSettings.settings) {
+        setModel(reusedSettings.settings.model);
+        setAspectRatio(reusedSettings.settings.aspectRatio);
+        setImageSize(reusedSettings.settings.imageSize);
+      }
+      setError(null);
+      onSettingsReused();
+    }
+  }, [reusedSettings, onSettingsReused]);
 
   const handleGenerate = useCallback(async () => {
     if (!prompt) {
@@ -23,15 +47,21 @@ const GeneratePane: React.FC = () => {
     setGeneratedImage(null);
 
     try {
-      const imageUrl = await generateImage(prompt, aspectRatio);
+      const imageUrl = await generateImage(prompt, aspectRatio, model, imageSize);
       setGeneratedImage(imageUrl);
+      addHistoryItem({
+        type: 'generate',
+        prompt,
+        imageUrl,
+        settings: { model, aspectRatio, imageSize },
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred.');
       console.error(err);
     } finally {
       setIsLoading(false);
     }
-  }, [prompt, aspectRatio]);
+  }, [prompt, aspectRatio, model, imageSize, addHistoryItem]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -47,21 +77,53 @@ const GeneratePane: React.FC = () => {
             className="w-full h-32 p-3 bg-gray-700 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-shadow"
             disabled={isLoading}
           />
+          <div>
+            <label htmlFor="model" className="block text-sm font-medium text-gray-300 mb-1">Image Model</label>
+            <select
+            id="model"
+            value={model}
+            onChange={(e) => setModel(e.target.value as ImageModel)}
+            className="w-full p-2 bg-gray-700 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            disabled={isLoading}
+            >
+            {IMAGE_MODELS.map(m => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+            ))}
+            </select>
+          </div>
           <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-                <label htmlFor="aspectRatio" className="block text-sm font-medium text-gray-300 mb-1">Aspect Ratio</label>
-                <select
-                id="aspectRatio"
-                value={aspectRatio}
-                onChange={(e) => setAspectRatio(e.target.value as AspectRatio)}
-                className="w-full p-2 bg-gray-700 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                disabled={isLoading}
-                >
-                {ASPECT_RATIOS.map(ratio => (
-                    <option key={ratio} value={ratio}>{ratio}</option>
-                ))}
-                </select>
-            </div>
+            {selectedModelInfo?.supportsAspectRatio && (
+              <div className="flex-1">
+                  <label htmlFor="aspectRatio" className="block text-sm font-medium text-gray-300 mb-1">Aspect Ratio</label>
+                  <select
+                  id="aspectRatio"
+                  value={aspectRatio}
+                  onChange={(e) => setAspectRatio(e.target.value as AspectRatio)}
+                  className="w-full p-2 bg-gray-700 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  disabled={isLoading}
+                  >
+                  {ASPECT_RATIOS.map(ratio => (
+                      <option key={ratio} value={ratio}>{ratio}</option>
+                  ))}
+                  </select>
+              </div>
+            )}
+            {selectedModelInfo?.supportsImageSize && (
+              <div className="flex-1">
+                  <label htmlFor="imageSize" className="block text-sm font-medium text-gray-300 mb-1">Image Size</label>
+                  <select
+                  id="imageSize"
+                  value={imageSize}
+                  onChange={(e) => setImageSize(e.target.value as ImageSize)}
+                  className="w-full p-2 bg-gray-700 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  disabled={isLoading}
+                  >
+                  {IMAGE_SIZES.map(size => (
+                      <option key={size} value={size}>{size}</option>
+                  ))}
+                  </select>
+              </div>
+            )}
             <div className="flex-1 flex items-end">
                 <Button onClick={handleGenerate} disabled={isLoading || !prompt} className="w-full">
                 {isLoading ? 'Generating...' : 'Generate Image'}
